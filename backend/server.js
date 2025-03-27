@@ -13,6 +13,9 @@ app.use(bodyParser.json());
 
 const URL =process.env.MONGODB_URL;
 
+const supplierRoutes = require('./routes/supplierRoutes');
+app.use('/api/suppliers', supplierRoutes);
+
 mongoose.connect(URL, {
     
     useNewUrlParser: true,
