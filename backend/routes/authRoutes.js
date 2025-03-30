@@ -1,8 +1,12 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
 import User from '../models/userModel.js';
 import { protect } from '../middleware/authMiddleware.js';
-import { JWT_SECRET } from '../config.js';
+
+// Load environment variables
+dotenv.config();
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const router = express.Router();
 

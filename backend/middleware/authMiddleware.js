@@ -1,6 +1,10 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/userModel.js';
-import { JWT_SECRET } from '../config.js';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Middleware to verify JWT token
 export const protect = async (req, res, next) => {
