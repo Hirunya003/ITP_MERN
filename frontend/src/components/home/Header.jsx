@@ -23,7 +23,7 @@ const Header = ({ searchTerm, setSearchTerm, cartCount }) => {
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
           <Link to="/">
-            <h1 className="text-4xl font-bold">SuperMart</h1>
+            <h1 className="text-4xl font-bold">SmartMart</h1>
             <p className="text-lg">Fresh products at your fingertips</p>
           </Link>
         </div>
