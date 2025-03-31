@@ -3,6 +3,7 @@ import User from '../models/userModel.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // @desc    Get all users
 // @route   GET /api/users
