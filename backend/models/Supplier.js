@@ -7,6 +7,7 @@ const supplierSchema = new mongoose.Schema({
     email: { type: String, required: true },
     phone: { type: String },
   },
+  productName: { type: String, required: true },
   costPrice: { type: Number, required: true }, // Cost price per unit
   sellingPrice: { type: Number, required: true }, // Selling price per unit
   purchaseHistory: [{

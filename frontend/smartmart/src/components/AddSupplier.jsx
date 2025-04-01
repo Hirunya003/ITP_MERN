@@ -5,6 +5,7 @@ const AddSupplier = ({ onSupplierAdded }) => {
   const [supplierName, setSupplierName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [productName, setProductName] = useState('');
   const [costPrice, setCostPrice] = useState('');
   const [sellingPrice, setSellingPrice] = useState('');
 
@@ -17,6 +18,7 @@ const AddSupplier = ({ onSupplierAdded }) => {
           email,
           phone,
         },
+        productName,
         costPrice: parseFloat(costPrice),
         sellingPrice: parseFloat(sellingPrice),
       };
@@ -27,6 +29,7 @@ const AddSupplier = ({ onSupplierAdded }) => {
       setSupplierName('');
       setEmail('');
       setPhone('');
+      setProductName('');
       setCostPrice('');
       setSellingPrice('');
     } catch (error) {
@@ -67,6 +70,17 @@ const AddSupplier = ({ onSupplierAdded }) => {
               type="text"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
+            />
+          </label>
+        </div>
+        <div>
+          <label>
+            Product Name:
+            <input
+              type="text"
+              value={productName}
+              onChange={(e) => setProductName(e.target.value)}
+              required
             />
           </label>
         </div>

@@ -52,7 +52,7 @@ router.get('/supplier-performance/:supplierId', async (req, res) => {
   
 // 5. Add a new supplier
 router.post('/suppliers', async (req, res) => {
-  const { supplierName, contact, costPrice, sellingPrice } = req.body;
+  const { supplierName, contact, productName, costPrice, sellingPrice } = req.body;
 
   // Generate a unique supplierId (you can customize this logic as needed)
   const supplierId = `SUP-${Date.now()}`; // Example: Unique ID based on timestamp
@@ -65,6 +65,7 @@ router.post('/suppliers', async (req, res) => {
         email: contact.email, // Assuming contact is an object with email and phone
         phone: contact.phone,
       },
+      productName,
       costPrice,
       sellingPrice,
       purchaseHistory: [], // Initialize with an empty purchase history

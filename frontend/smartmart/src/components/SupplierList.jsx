@@ -27,6 +27,7 @@ const SupplierList = () => {
             <th>ID</th>
             <th>Name</th>
             <th>Contact</th>
+            <th>Product Name</th>
             <th>Cost Price</th>
             <th>Selling Price</th>
           </tr>
@@ -39,6 +40,7 @@ const SupplierList = () => {
               <td>
                 {supplier.contact.email} {supplier.contact.phone ? `(${supplier.contact.phone})` : ''}
               </td>
+              <td>{supplier.productName}</td>
               <td>{supplier.costPrice}</td>
               <td>{supplier.sellingPrice}</td>
             </tr>

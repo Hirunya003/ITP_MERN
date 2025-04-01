@@ -4,9 +4,9 @@ const nodemailer = require('nodemailer');
 
 // Add a supplier
 exports.addSupplier = async (req, res) => {
-  const { supplierId, supplierName, contact, costPrice, sellingPrice } = req.body;
+  const { supplierId, supplierName, contact, productName, costPrice, sellingPrice } = req.body;
   try {
-    const supplier = new Supplier({ supplierId, supplierName, contact, costPrice, sellingPrice });
+    const supplier = new Supplier({ supplierId, supplierName, contact, productName, costPrice, sellingPrice });
     await supplier.save();
     res.status(201).json(supplier);
   } catch (error) {
