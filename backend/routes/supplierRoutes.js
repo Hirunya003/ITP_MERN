@@ -93,5 +93,26 @@ router.delete('/suppliers/:supplierId', async (req, res) => {
   }
 });
 
+// 7. Update a supplier
+router.put('/suppliers/:supplierId', async (req, res) => {
+  const { supplierId } = req.params;
+  const { supplierName, contact, productName, costPrice, sellingPrice } = req.body;
+
+  try {
+    const updatedSupplier = await Supplier.findOneAndUpdate(
+      { supplierId },
+      { supplierName, contact, productName, costPrice, sellingPrice },
+      { new: true } // Return the updated document
+    );
+
+    if (!updatedSupplier) {
+      return res.status(404).json({ message: 'Supplier not found' });
+    }
+
+    res.json(updatedSupplier);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
   module.exports = router;

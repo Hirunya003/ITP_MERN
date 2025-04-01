@@ -4,6 +4,7 @@ import AddSupplier from './AddSupplier'; // Import the AddSupplier component
 
 const SupplierList = () => {
   const [suppliers, setSuppliers] = useState([]);
+  const [supplierToEdit, setSupplierToEdit] = useState(null); // State to hold the supplier being edited
 
   useEffect(() => {
     const fetchSuppliers = async () => {
@@ -17,6 +18,15 @@ const SupplierList = () => {
     setSuppliers((prevSuppliers) => [...prevSuppliers, newSupplier]);
   };
 
+  const handleSupplierUpdated = (updatedSupplier) => {
+    setSuppliers((prevSuppliers) =>
+      prevSuppliers.map((supplier) =>
+        supplier.supplierId === updatedSupplier.supplierId ? updatedSupplier : supplier
+      )
+    );
+    setSupplierToEdit(null); // Clear the supplier being edited
+  };
+
   const handleDeleteSupplier = async (supplierId) => {
     try {
       await api.delete(`/suppliers/${supplierId}`);
@@ -26,9 +36,17 @@ const SupplierList = () => {
     }
   };
 
+  const handleEditSupplier = (supplier) => {
+    setSupplierToEdit(supplier); // Set the supplier to be edited
+  };
+
   return (
     <div>
-      <AddSupplier onSupplierAdded={handleSupplierAdded} /> {/* Pass the callback */}
+      <AddSupplier 
+        onSupplierAdded={handleSupplierAdded} 
+        supplierToEdit={supplierToEdit} 
+        onSupplierUpdated={handleSupplierUpdated} 
+      /> {/* Pass the callback and supplier to edit */}
       <h2>Supplier Database</h2>
       <table border="1">
         <thead>
@@ -54,7 +72,8 @@ const SupplierList = () => {
               <td>{supplier.costPrice}</td>
               <td>{supplier.sellingPrice}</td>
               <td>
-                <button onClick={() => handleDeleteSupplier(supplier.supplierId)}>Delete</button>
+                <button onClick={() => handleEditSupplier(supplier)}>Edit</button> {/* Edit button */}
+                <button onClick={() => handleDeleteSupplier(supplier.supplierId)}>Delete</button> {/* Delete button */}
               </td>
             </tr>
           ))}
