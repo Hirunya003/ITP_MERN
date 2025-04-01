@@ -1,84 +1,76 @@
+const { body, validationResult } = require('express-validator');
 const Supplier = require('../models/Supplier');
 const Inventory = require('../models/Inventory');
 const nodemailer = require('nodemailer');
 
-// Add a supplier
-exports.addSupplier = async (req, res) => {
-  const { supplierId, supplierName, contact, productName, costPrice, sellingPrice } = req.body;
-  try {
-    const supplier = new Supplier({ supplierId, supplierName, contact, productName, costPrice, sellingPrice });
-    await supplier.save();
-    res.status(201).json(supplier);
-  } catch (error) {
-    res.status(500).json({ message: 'Error adding supplier', error });
-  }
-};
+const validateSupplier = [
+  body('supplierName').trim().notEmpty().withMessage('Supplier name is required'),
+  body('contact.email').isEmail().withMessage('Valid email is required'),
+  body('contact.phone').optional().isLength({ min: 10, max: 10 }).withMessage('Phone must be 10 digits'),
+  body('productName').trim().notEmpty().withMessage('Product name is required'),
+  body('costPrice').isFloat({ min: 0 }).withMessage('Cost price must be a positive number'),
+  body('sellingPrice')
+    .isFloat({ min: 0 }).withMessage('Selling price must be a positive number')
+    .custom((value, { req }) => {
+      if (value <= req.body.costPrice) {
+        throw new Error('Selling price must be greater than cost price');
+      }
+      return true;
+    })
+];
 
-// Get all suppliers
-exports.getSuppliers = async (req, res) => {
-  try {
-    const suppliers = await Supplier.find();
-    res.json(suppliers);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching suppliers', error });
-  }
-};
-
-// Check restock alerts (Automated Restocking Alerts)
-exports.checkRestockAlerts = async (req, res) => {
-  try {
-    const lowStockItems = await Inventory.find({ stockLevel: { $lte: '$threshold' } }).populate('supplierId');
-    if (lowStockItems.length > 0) {
-      // Trigger alert (e.g., log or notify manager)
-      console.log('Low stock alert:', lowStockItems);
-      res.json({ message: 'Low stock detected', items: lowStockItems });
-    } else {
-      res.json({ message: 'No low stock items' });
+exports.addSupplier = [
+  ...validateSupplier,
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
     }
-  } catch (error) {
-    res.status(500).json({ message: 'Error checking restock', error });
+
+    const { supplierId, supplierName, contact, productName, costPrice, sellingPrice } = req.body;
+    try {
+      const supplier = new Supplier({ 
+        supplierId: supplierId || `SUP-${Date.now()}`, 
+        supplierName, 
+        contact, 
+        productName, 
+        costPrice, 
+        sellingPrice 
+      });
+      await supplier.save();
+      res.status(201).json(supplier);
+    } catch (error) {
+      res.status(500).json({ message: 'Error adding supplier', error: error.message });
+    }
   }
-};
+];
 
-// Generate purchase order (Purchase Order Generation)
-exports.generatePurchaseOrder = async (req, res) => {
-  const { supplierId, items } = req.body; // items: [{ itemId, quantity }]
-  try {
-    const supplier = await Supplier.findOne({ supplierId });
-    if (!supplier) return res.status(404).json({ message: 'Supplier not found' });
+// Update supplier validation
+exports.updateSupplier = [
+  ...validateSupplier,
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
 
-    const orderId = `PO-${Date.now()}`;
-    const totalCost = items.reduce((sum, item) => sum + item.quantity * supplier.costPrice, 0);
-
-    // Update purchase history
-    supplier.purchaseHistory.push({ orderId, items, totalCost });
-    await supplier.save();
-
-    // Send email to supplier (optional)
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-    });
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: supplier.contact.email,
-      subject: `Purchase Order ${orderId}`,
-      text: `Order Details: ${JSON.stringify(items)}\nTotal Cost: ${totalCost}`,
-    });
-
-    res.json({ message: 'Purchase order generated', orderId });
-  } catch (error) {
-    res.status(500).json({ message: 'Error generating order', error });
+    const { supplierName, contact, productName, costPrice, sellingPrice } = req.body;
+    try {
+      const updatedSupplier = await Supplier.findOneAndUpdate(
+        { supplierId: req.params.supplierId },
+        { supplierName, contact, productName, costPrice, sellingPrice },
+        { new: true }
+      );
+      if (!updatedSupplier) {
+        return res.status(404).json({ message: 'Supplier not found' });
+      }
+      res.json(updatedSupplier);
+    } catch (error) {
+      res.status(500).json({ message: 'Error updating supplier', error: error.message });
+    }
   }
-};
+];
 
-// Supplier performance monitoring
-exports.getSupplierPerformance = async (req, res) => {
-  try {
-    const supplier = await Supplier.findById(req.params.id);
-    if (!supplier) return res.status(404).json({ message: 'Supplier not found' });
-    res.json(supplier.performance);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching performance', error });
-  }
-};
+// In supplierRoutes.js
+router.post('/suppliers', supplierController.addSupplier);
+router.put('/suppliers/:supplierId', supplierController.updateSupplier);
