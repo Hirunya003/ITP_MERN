@@ -17,6 +17,15 @@ const SupplierList = () => {
     setSuppliers((prevSuppliers) => [...prevSuppliers, newSupplier]);
   };
 
+  const handleDeleteSupplier = async (supplierId) => {
+    try {
+      await api.delete(`/suppliers/${supplierId}`);
+      setSuppliers((prevSuppliers) => prevSuppliers.filter(supplier => supplier.supplierId !== supplierId));
+    } catch (error) {
+      console.error('Error deleting supplier:', error);
+    }
+  };
+
   return (
     <div>
       <AddSupplier onSupplierAdded={handleSupplierAdded} /> {/* Pass the callback */}
@@ -30,6 +39,7 @@ const SupplierList = () => {
             <th>Product Name</th>
             <th>Cost Price</th>
             <th>Selling Price</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -43,6 +53,9 @@ const SupplierList = () => {
               <td>{supplier.productName}</td>
               <td>{supplier.costPrice}</td>
               <td>{supplier.sellingPrice}</td>
+              <td>
+                <button onClick={() => handleDeleteSupplier(supplier.supplierId)}>Delete</button>
+              </td>
             </tr>
           ))}
         </tbody>
