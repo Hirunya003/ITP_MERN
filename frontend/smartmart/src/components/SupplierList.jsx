@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../axios';
-import AddSupplier from './AddSupplier'; // Import the AddSupplier component
+import AddSupplier from './AddSupplier';
 
 const SupplierList = () => {
   const [suppliers, setSuppliers] = useState([]);
@@ -55,7 +55,7 @@ const SupplierList = () => {
             <th>Name</th>
             <th>Contact</th>
             <th>Product Name</th>
-            <th>Cost Price</th>
+            <th>Price</th>
             <th>Selling Price</th>
             <th>Actions</th>
           </tr>
