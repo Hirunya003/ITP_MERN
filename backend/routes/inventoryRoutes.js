@@ -5,6 +5,8 @@ import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
+
+
 // @desc    Get all products
 // @route   GET /api/inventory/products
 // @access  Public

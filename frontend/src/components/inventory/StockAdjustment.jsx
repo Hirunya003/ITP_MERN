@@ -2,31 +2,39 @@ import { useState } from 'react';
 import { useSnackbar } from 'notistack';
 
 const StockAdjustment = ({ product, onAdjustStock, onCancel }) => {
-  const { enqueueSnackbar } = useSnackbar();
-  const [formData, setFormData] = useState({
-    quantity: '',
-    changeType: 'add',
-    notes: ''
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { enqueueSnackbar } = useSnackbar(); // Snackbar for showing success/error messages
 
+   // Initialize form state
+  const [formData, setFormData] = useState({
+    quantity: '',  // Stores the quantity input
+    changeType: 'add',  // Default change type (Add Stock)
+    notes: ''  // Optional notes field
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false); // Tracks submission state
+
+  // Handles input field changes
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
   };
 
+  // Handles form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+
+    //Validation 1: Ensure quantity is entered and is greater than 0
     if (!formData.quantity || formData.quantity <= 0) {
       enqueueSnackbar('Please enter a valid quantity', { variant: 'error' });
-      return;
+      return; // Stop form submission
     }
     
-    setIsSubmitting(true);
+    setIsSubmitting(true); // Disable form while processing
     try {
-      await onAdjustStock(formData);
+      await onAdjustStock(formData);// Call parent function to update stock
       setIsSubmitting(false);
+
+       // Reset form after successful submission
       setFormData({
         quantity: '',
         changeType: 'add',
@@ -34,7 +42,7 @@ const StockAdjustment = ({ product, onAdjustStock, onCancel }) => {
       });
     } catch (error) {
       console.error('Error adjusting stock:', error);
-      setIsSubmitting(false);
+      setIsSubmitting(false); // Re-enable form in case of an error
     }
   };
 

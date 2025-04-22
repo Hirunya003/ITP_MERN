@@ -3,6 +3,8 @@ import { useSnackbar } from 'notistack';
 
 const ProductForm = ({ product, onSubmit, onCancel }) => {
   const { enqueueSnackbar } = useSnackbar();
+  
+  // Define the form's initial state with default values
   const [formData, setFormData] = useState({
     name: '',
     category: '',
@@ -12,12 +14,13 @@ const ProductForm = ({ product, onSubmit, onCancel }) => {
     minStock: '',
     unit: 'item',
     barcode: '',
-    image: 'https://via.placeholder.com/150',
+    image: 'https://via.placeholder.com/150', // Default placeholder image
     expiryDate: ''
   });
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // State to prevent multiple submissions
 
+  // List of available categories for selection
   const categories = [
     'Fruits',
     'Vegetables',
@@ -34,8 +37,10 @@ const ProductForm = ({ product, onSubmit, onCancel }) => {
     'Gas'  // Added new Gas category
   ];
 
+  // List of units for product measurement
   const units = ['item', 'kg', 'g', 'l', 'ml', 'pack'];
 
+  // Effect to populate form fields when editing an existing product
   useEffect(() => {
     if (product) {
       setFormData({
@@ -51,25 +56,28 @@ const ProductForm = ({ product, onSubmit, onCancel }) => {
         expiryDate: product.expiryDate ? new Date(product.expiryDate).toISOString().split('T')[0] : ''
       });
     }
-  }, [product]);
+  }, [product]);  // Runs only when `product` changes
 
+  // Function to handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
   };
 
+  // Function to handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Basic validation
+    // Check if required fields are filled
     if (!formData.name || !formData.category || !formData.price) {
       enqueueSnackbar('Please fill all required fields', { variant: 'error' });
       return;
     }
     
-    setIsSubmitting(true);
+    setIsSubmitting(true); // Disable submit button while processing
     try {
-      await onSubmit(formData);
+      await onSubmit(formData);// Call the parent submit handler
       setIsSubmitting(false);
       
       // Reset form if not editing
