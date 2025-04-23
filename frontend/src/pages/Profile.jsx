@@ -325,7 +325,7 @@ const Profile = () => {
                       <td>
                         <button
                           className="view-details-btn"
-                          onClick={() => navigate(`/order-confirmation/${order._id}`)}
+                          onClick={() => navigate(`/order-details/${order._id}`)}
                         >
                           View Details
                         </button>

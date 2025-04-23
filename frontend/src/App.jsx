@@ -16,6 +16,7 @@ import Cart from './components/Cart/Cart';
 import CheckoutPage from './pages/CheckoutPage';
 import Orders from './components/Order/Orders';
 import OrderConfirmation from './components/Order/OrderConfirmation';
+import OrderDetails from './components/Order/OrderDetails';
 import PrivateRoute from './components/PrivateRoute';
 
 const App = () => {
@@ -33,6 +34,7 @@ const App = () => {
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/orders" element={<PrivateRoute element={<Orders />} />} />
           <Route path="/order-confirmation/:orderId" element={<PrivateRoute element={<OrderConfirmation />} />} />
+          <Route path="/order-details/:orderId" element={<PrivateRoute element={<OrderDetails />} />} />
         
 
           {/* Protected Routes */}
