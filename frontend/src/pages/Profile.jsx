@@ -1,7 +1,8 @@
 import { useState, useContext, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { useSnackbar } from 'notistack';
+import axios from 'axios';
 import Header from '../components/home/Header';
 import Spinner from '../components/Spinner';
 import './Profile.css';
@@ -9,9 +10,15 @@ import './Profile.css';
 const Profile = () => {
   const { user, updateProfile, fetchUserProfile } = useContext(AuthContext);
   const { enqueueSnackbar } = useSnackbar();
+  const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  
+  const [activeSection, setActiveSection] = useState('edit-profile');
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5555';
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -26,7 +33,7 @@ const Profile = () => {
     }
   });
 
-  // Fetch fresh user data when the component mounts - ONLY ONCE
+  // Fetch user profile when the component mounts
   useEffect(() => {
     const loadUserProfile = async () => {
       setIsLoading(true);
@@ -41,15 +48,13 @@ const Profile = () => {
     };
     
     loadUserProfile();
-    // Remove fetchUserProfile from dependencies to prevent infinite loop
-  }, [enqueueSnackbar]); // Only depend on enqueueSnackbar, not fetchUserProfile
+  }, [enqueueSnackbar]);
 
   // Update the form when user data changes
   useEffect(() => {
     console.log("User data received in Profile:", user);
     
     if (user) {
-      // Ensure address is an object even if it's null or undefined in the user data
       const address = user.address || {};
       
       setFormData({
@@ -67,6 +72,29 @@ const Profile = () => {
       });
     }
   }, [user]);
+
+  // Fetch orders when the "Order History" section is selected
+  useEffect(() => {
+    if (activeSection === 'order-history') {
+      const fetchOrders = async () => {
+        setOrdersLoading(true);
+        try {
+          const config = {
+            headers: { Authorization: `Bearer ${JSON.parse(localStorage.getItem('userInfo')).token}` },
+          };
+          const { data } = await axios.get(`${API_BASE_URL}/api/orders`, config);
+          setOrders(data);
+        } catch (error) {
+          console.error('Error fetching orders:', error);
+          enqueueSnackbar('Failed to load order history', { variant: 'error' });
+        } finally {
+          setOrdersLoading(false);
+        }
+      };
+
+      fetchOrders();
+    }
+  }, [activeSection, enqueueSnackbar]);
 
   const handleChange = (e) => {
     if (e.target.name.includes('.')) {
@@ -94,7 +122,6 @@ const Profile = () => {
       return;
     }
 
-    // Only send password if it was filled in
     const updateData = { ...formData };
     if (!updateData.password) delete updateData.password;
     if (updateData.confirmPassword) delete updateData.confirmPassword;
@@ -105,7 +132,6 @@ const Profile = () => {
 
     if (result.success) {
       enqueueSnackbar('Profile updated successfully', { variant: 'success' });
-      // Reset password fields
       setFormData({
         ...formData,
         password: '',
@@ -116,7 +142,6 @@ const Profile = () => {
     }
   };
 
-  // Function to get user initials for avatar
   const getUserInitials = () => {
     if (!user || !user.name) return '?';
     return user.name
@@ -127,24 +152,11 @@ const Profile = () => {
       .substring(0, 2);
   };
 
-  return (
-    <div className="profile-container">
-      <Header searchTerm="" setSearchTerm={() => {}} cartCount={0} />
-      
-      <div className="profile-card">
-        <div className="profile-header">
-          <h2 className="profile-title">My Profile</h2>
-          <Link to="/" className="back-button">
-            <i className="fas fa-arrow-left"></i>
-            Back to Home
-          </Link>
-        </div>
-        
-        {isLoading ? (
-          <div className="loading-container">
-            <Spinner />
-          </div>
-        ) : (
+  // Render content based on the active section
+  const renderSection = () => {
+    switch (activeSection) {
+      case 'edit-profile':
+        return (
           <form className="profile-form" onSubmit={handleSubmit}>
             <div className="avatar-section">
               <div className="avatar-circle">
@@ -281,7 +293,105 @@ const Profile = () => {
               </button>
             </div>
           </form>
-        )}
+        );
+      case 'order-history':
+        return (
+          <div className="order-history-section">
+            <h3>Order History</h3>
+            {ordersLoading ? (
+              <div className="loading-container">
+                <Spinner />
+              </div>
+            ) : orders.length === 0 ? (
+              <p className="no-orders">No orders found.</p>
+            ) : (
+              <table className="order-history-table">
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Date</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((order) => (
+                    <tr key={order._id}>
+                      <td>{order._id}</td>
+                      <td>{new Date(order.createdAt).toLocaleDateString()}</td>
+                      <td>${order.totalPrice.toFixed(2)}</td>
+                      <td>{order.status}</td>
+                      <td>
+                        <button
+                          className="view-details-btn"
+                          onClick={() => navigate(`/order-confirmation/${order._id}`)}
+                        >
+                          View Details
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        );
+      case 'payments':
+        return <div className="section-placeholder">Payments - Coming Soon</div>;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="profile-container">
+      <Header searchTerm="" setSearchTerm={() => {}} cartCount={0} />
+      
+      <div className="profile-wrapper">
+        <div className="profile-sidebar">
+          <h3 className="sidebar-title">Profile Options</h3>
+          <ul className="sidebar-menu">
+            <li
+              className={`sidebar-item ${activeSection === 'edit-profile' ? 'active' : ''}`}
+              onClick={() => setActiveSection('edit-profile')}
+            >
+              Edit Profile
+            </li>
+            <li
+              className={`sidebar-item ${activeSection === 'order-history' ? 'active' : ''}`}
+              onClick={() => setActiveSection('order-history')}
+            >
+              Order History
+            </li>
+            <li
+              className={`sidebar-item ${activeSection === 'payments' ? 'active' : ''}`}
+              onClick={() => setActiveSection('payments')}
+            >
+              Payments
+            </li>
+          </ul>
+        </div>
+
+        <div className="profile-content">
+          <div className="profile-card">
+            <div className="profile-header">
+              <h2 className="profile-title">My Profile</h2>
+              <Link to="/" className="back-button">
+                <i className="fas fa-arrow-left"></i>
+                Back to Home
+              </Link>
+            </div>
+            
+            {isLoading ? (
+              <div className="loading-container">
+                <Spinner />
+              </div>
+            ) : (
+              renderSection()
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
