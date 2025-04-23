@@ -16,6 +16,9 @@ const URL =process.env.MONGODB_URL;
 const supplierRoutes = require('./routes/supplierRoutes');
 app.use('/api', supplierRoutes);
 
+const inventoryRoutes = require('./routes/inventoryRoutes');
+app.use('/api', inventoryRoutes); // ✅ this allows /api/inventory
+
 mongoose.connect(URL, {
     
     useNewUrlParser: true,

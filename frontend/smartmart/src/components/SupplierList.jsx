@@ -41,44 +41,64 @@ const SupplierList = () => {
   };
 
   return (
-    <div>
-      <AddSupplier 
-        onSupplierAdded={handleSupplierAdded} 
-        supplierToEdit={supplierToEdit} 
-        onSupplierUpdated={handleSupplierUpdated} 
-      /> {/* Pass the callback and supplier to edit */}
-      <h2>Supplier Database</h2>
-      <table border="1">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Contact</th>
-            <th>Product Name</th>
-            <th>Price</th>
-            <th>Selling Price</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {suppliers.map((supplier) => (
-            <tr key={supplier.supplierId}>
-              <td>{supplier.supplierId}</td>
-              <td>{supplier.supplierName}</td>
-              <td>
-                {supplier.contact.email} {supplier.contact.phone ? `(${supplier.contact.phone})` : ''}
-              </td>
-              <td>{supplier.productName}</td>
-              <td>{supplier.costPrice}</td>
-              <td>{supplier.sellingPrice}</td>
-              <td>
-                <button onClick={() => handleEditSupplier(supplier)}>Edit</button> {/* Edit button */}
-                <button onClick={() => handleDeleteSupplier(supplier.supplierId)}>Delete</button> {/* Delete button */}
-              </td>
+    <div className="max-w-7xl font-bold mx-auto px-4 py-10">
+      Add Supplier Form
+      <div className="mb-10">
+        <AddSupplier
+          onSupplierAdded={handleSupplierAdded}
+          supplierToEdit={supplierToEdit}
+          onSupplierUpdated={handleSupplierUpdated}
+        />
+      </div>
+  
+      {/* Table Heading */}
+      <h2 className="text-2xl font-bold text-green-500 mb-4 text-center">Supplier Database</h2>
+  
+      {/* Supplier Table */}
+      <div className="overflow-x-auto shadow-md rounded-lg border border-gray-200">
+        <table className="min-w-full text-sm text-gray-700">
+          <thead className="bg-green-500 text-white uppercase text-sm">
+            <tr>
+              <th className="px-4 py-3 text-left">ID</th>
+              <th className="px-4 py-3 text-left">Name</th>
+              <th className="px-4 py-3 text-left">Contact</th>
+              <th className="px-4 py-3 text-left">Product Name</th>
+              <th className="px-4 py-3 text-left">Cost</th>
+              <th className="px-4 py-3 text-left">Selling Price</th>
+              <th className="px-4 py-3 text-center">Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-gray-200 bg-white">
+            {suppliers.map((supplier) => (
+              <tr key={supplier.supplierId} className="hover:bg-gray-100">
+                <td className="px-4 py-2">{supplier.supplierId}</td>
+                <td className="px-4 py-2">{supplier.supplierName}</td>
+                <td className="px-4 py-2">
+                  {supplier.contact.email}<br />
+                  <span className="text-xs text-gray-500">{supplier.contact.phone}</span>
+                </td>
+                <td className="px-4 py-2">{supplier.productName}</td>
+                <td className="px-4 py-2">Rs. {supplier.costPrice}</td>
+                <td className="px-4 py-2">Rs. {supplier.sellingPrice}</td>
+                <td className="px-4 py-2 text-center space-x-2">
+                  <button
+                    onClick={() => handleEditSupplier(supplier)}
+                    className="px-3 py-1 bg-yellow-400 hover:bg-yellow-500 text-white rounded-md transition"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteSupplier(supplier.supplierId)}
+                    className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md transition"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };
