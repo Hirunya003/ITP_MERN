@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useContext } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
-import { FiShoppingCart } from 'react-icons/fi';
-import Header from '../components/home/Header';
 import Spinner from '../components/Spinner';
+import Header from '../components/home/Header';
 import { CartContext } from '../context/CartContext';
+import { useNavigate } from 'react-router-dom'; // NEW: Added useNavigate
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5555';
 
@@ -14,16 +13,17 @@ const Products = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { cart, addToCart } = useContext(CartContext);
+  const navigate = useNavigate(); // NEW: For navigation to Product Preview
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         const { data } = await axios.get(`${API_BASE_URL}/api/inventory/products`);
         setProducts(data);
-        setLoading(false);
       } catch (error) {
         console.error('Error fetching products:', error);
         setError('Failed to load products. Please try again later.');
+      } finally {
         setLoading(false);
       }
     };
@@ -35,6 +35,11 @@ const Products = () => {
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // NEW: Handler to navigate to Product Preview
+  const handleProductClick = (productId) => {
+    navigate(`/product-preview/${productId}`);
+  };
 
   return (
     <div className="p-4 bg-gray-50 min-h-screen">
@@ -51,32 +56,35 @@ const Products = () => {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {filteredProducts.map((product) => (
-            <div key={product._id} className="bg-white rounded-lg shadow-md overflow-hidden border border-transparent hover:border-gray-200">
-              <div className="h-40 overflow-hidden bg-gray-100 relative">
-                <img 
-                  src={product.image} 
-                  alt={product.name} 
+            <div
+              key={product._id}
+              className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-all cursor-pointer"
+              onClick={() => handleProductClick(product._id)} // NEW: Navigate to Product Preview on click
+            >
+              <div className="h-40 overflow-hidden">
+                <img
+                  src={product.image || '/placeholder.png'}
+                  alt={product.name}
                   className="w-full h-full object-cover"
-                  onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/150?text=No+Image'; }}
                 />
-                {product.currentStock <= 0 && (
-                  <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">Out of Stock</div>
-                )}
               </div>
               <div className="p-4">
-                <h4 className="font-semibold text-gray-900">{product.name}</h4>
-                <p className="text-sm text-gray-500 mb-2">{product.category}</p>
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm text-gray-500">Price: <span className="font-medium text-gray-900">${product.price.toFixed(2)}</span></span>
-                  {product.currentStock > 0 && <span className="text-sm text-gray-500">Stock: {product.currentStock}</span>}
+                <h3 className="font-semibold text-lg">{product.name}</h3>
+                <p className="text-gray-600 text-sm mb-2">{product.category}</p>
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-green-600">${product.price.toFixed(2)}</span>
+                  {/* Modified: Button now navigates to Product Preview instead of adding directly */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent card click from triggering
+                      handleProductClick(product._id);
+                    }}
+                    className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+                    disabled={product.currentStock <= 0}
+                  >
+                    Add to Cart
+                  </button>
                 </div>
-                <button 
-                  onClick={() => addToCart(product)}
-                  disabled={product.currentStock <= 0}
-                  className={`mt-2 w-full flex items-center justify-center py-2 rounded-md ${product.currentStock > 0 ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-                >
-                  <FiShoppingCart className="mr-2" /> Add to Cart
-                </button>
               </div>
             </div>
           ))}

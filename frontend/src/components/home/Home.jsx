@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useContext } from 'react';
 import axios from 'axios';
 import Spinner from '../Spinner';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // Modified: Added useNavigate
 import { AiOutlineEdit } from 'react-icons/ai';
 import { BsInfoCircle } from 'react-icons/bs';
 import { MdOutlineAddBox } from 'react-icons/md';
@@ -15,7 +15,8 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const { cart, addToCart } = useContext(CartContext);
+  const { cart } = useContext(CartContext);
+  const navigate = useNavigate(); // NEW: For navigation to Product Preview
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -38,6 +39,11 @@ const Home = () => {
     product.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // NEW: Handler to navigate to Product Preview
+  const handleProductClick = (productId) => {
+    navigate(`/product-preview/${productId}`);
+  };
+
   return (
     <div className="p-4 bg-gray-50 min-h-screen">
       <Header searchTerm={searchTerm} setSearchTerm={setSearchTerm} cartCount={cart.items.length} />
@@ -53,17 +59,29 @@ const Home = () => {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {filteredProducts.map((product) => (
-            <div key={product._id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-all">
+            <div
+              key={product._id}
+              className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-all cursor-pointer"
+              onClick={() => handleProductClick(product._id)} // NEW: Navigate to Product Preview on click
+            >
               <div className="h-40 overflow-hidden">
-                <img src={product.image || '/placeholder.png'} alt={product.name} className="w-full h-full object-cover" />
+                <img
+                  src={product.image || '/placeholder.png'}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div className="p-4">
                 <h3 className="font-semibold text-lg">{product.name}</h3>
                 <p className="text-gray-600 text-sm mb-2">{product.category}</p>
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-green-600">${product.price.toFixed(2)}</span>
-                  <button 
-                    onClick={() => addToCart(product)} 
+                  {/* Modified: Button now navigates to Product Preview instead of adding directly */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent card click from triggering
+                      handleProductClick(product._id);
+                    }}
                     className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
                     disabled={product.currentStock <= 0}
                   >

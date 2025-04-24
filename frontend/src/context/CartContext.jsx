@@ -1,20 +1,19 @@
-import { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { AuthContext } from './AuthContext';
-import { useSnackbar } from 'notistack';
 
-export const CartContext = createContext();
+const CartContext = createContext();
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5555';
 
-export const CartProvider = ({ children }) => {
-  const [cart, setCart] = useState({ items: [] });
+const CartProvider = ({ children }) => {
   const { user } = useContext(AuthContext);
-  const { enqueueSnackbar } = useSnackbar();
+  const [cart, setCart] = useState({ items: [] });
 
+  // Fetch cart data when user is logged in
   useEffect(() => {
     const fetchCart = async () => {
-      if (user) {
+      if (user && user.token) {
         try {
           const config = {
             headers: { Authorization: `Bearer ${user.token}` },
@@ -23,52 +22,42 @@ export const CartProvider = ({ children }) => {
           setCart(data);
         } catch (error) {
           console.error('Error fetching cart:', error);
-          enqueueSnackbar('Failed to load cart', { variant: 'error' });
         }
-      } else {
-        setCart({ items: [] });
       }
     };
-
     fetchCart();
   }, [user]);
 
-  const addToCart = async (product, quantity = 1) => {
+  // Modified: Updated addToCart to accept product with quantity
+  const addToCart = async (product) => {
     if (!user) {
-      enqueueSnackbar('Please log in to add items to your cart', { variant: 'warning' });
+      alert('Please log in to add items to your cart.');
       return;
     }
 
     try {
       const config = {
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${user.token}`,
         },
       };
+
+      const quantity = product.quantity || 1; // Use provided quantity or default to 1
       const { data } = await axios.post(
         `${API_BASE_URL}/api/cart`,
         { productId: product._id, quantity },
         config
       );
       setCart(data);
-      enqueueSnackbar(`${product.name} added to cart`, { variant: 'success' });
     } catch (error) {
       console.error('Error adding to cart:', error);
-      enqueueSnackbar(error.response?.data?.message || 'Failed to add to cart', { variant: 'error' });
     }
   };
 
   const updateQuantity = async (productId, quantity) => {
-    if (!user) {
-      enqueueSnackbar('Please log in to update your cart', { variant: 'warning' });
-      return;
-    }
-
     try {
       const config = {
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${user.token}`,
         },
       };
@@ -79,46 +68,35 @@ export const CartProvider = ({ children }) => {
       );
       setCart(data);
     } catch (error) {
-      console.error('Error updating cart:', error);
-      enqueueSnackbar(error.response?.data?.message || 'Failed to update cart', { variant: 'error' });
+      console.error('Error updating quantity:', error);
     }
   };
 
   const removeFromCart = async (productId) => {
-    if (!user) {
-      enqueueSnackbar('Please log in to modify your cart', { variant: 'warning' });
-      return;
-    }
-
     try {
       const config = {
-        headers: { Authorization: `Bearer ${user.token}` },
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
       };
       const { data } = await axios.delete(`${API_BASE_URL}/api/cart/${productId}`, config);
       setCart(data);
-      enqueueSnackbar('Item removed from cart', { variant: 'success' });
     } catch (error) {
       console.error('Error removing from cart:', error);
-      enqueueSnackbar(error.response?.data?.message || 'Failed to remove from cart', { variant: 'error' });
     }
   };
 
   const clearCart = async () => {
-    if (!user) {
-      enqueueSnackbar('Please log in to clear your cart', { variant: 'warning' });
-      return;
-    }
-
     try {
       const config = {
-        headers: { Authorization: `Bearer ${user.token}` },
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
       };
       const { data } = await axios.delete(`${API_BASE_URL}/api/cart`, config);
       setCart(data);
-      enqueueSnackbar('Cart cleared', { variant: 'success' });
     } catch (error) {
       console.error('Error clearing cart:', error);
-      enqueueSnackbar(error.response?.data?.message || 'Failed to clear cart', { variant: 'error' });
     }
   };
 
@@ -128,3 +106,5 @@ export const CartProvider = ({ children }) => {
     </CartContext.Provider>
   );
 };
+
+export { CartContext, CartProvider };
