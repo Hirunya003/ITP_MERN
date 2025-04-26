@@ -42,17 +42,40 @@ const OrderDetails = () => {
     fetchOrder();
   }, [orderId, navigate, enqueueSnackbar]);
 
+  //--------order again---------
   const handleOrderAgain = async () => {
     try {
-      // Add each item from the order to the cart
-      for (const item of order.items) {
-        await addToCart(item.product._id, item.quantity);
+      if (!order.items || order.items.length === 0) {
+        enqueueSnackbar('No items to add to cart', { variant: 'info' });
+        navigate('/cart');
+        return;
       }
-      enqueueSnackbar('Items added to cart successfully', { variant: 'success' });
+      let failedItems = [];
+      for (const item of order.items) {
+        if (!item.product?._id) {
+          console.warn(`Skipping item with missing product: ${JSON.stringify(item)}`);
+          failedItems.push(item.product?.name || 'Unknown Product');
+          continue;
+        }
+        try {
+          console.log('Adding to cart:', item.product._id, item.quantity);
+          await addToCart({ _id: item.product._id, quantity: item.quantity });
+        } catch (error) {
+          console.warn(`Failed to add item ${item.product.name}:`, error.message);
+          failedItems.push(item.product.name);
+        }
+      }
+      if (failedItems.length > 0) {
+        enqueueSnackbar(`Some items could not be added: ${failedItems.join(', ')}`, {
+          variant: 'warning',
+        });
+      } else {
+        enqueueSnackbar('Items added to cart successfully', { variant: 'success' });
+      }
       navigate('/cart');
     } catch (error) {
-      console.error('Error adding items to cart:', error);
-      enqueueSnackbar('Failed to add items to cart', { variant: 'error' });
+      console.error('Unexpected error:', error.message, error.response?.data);
+      enqueueSnackbar('Failed to process order: ' + error.message, { variant: 'error' });
     }
   };
 

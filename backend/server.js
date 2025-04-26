@@ -6,7 +6,7 @@ import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
 import cartRoutes from './routes/cartRoutes.js';
-import orderRoutes from './routes/orderRoutes.js'; // Add order routes
+import orderRoutes from './routes/orderRoutes.js'; 
 
 // Load environment variables
 dotenv.config();
@@ -29,7 +29,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/cart', cartRoutes);
-app.use('/api/orders', orderRoutes); // Add order routes
+app.use('/api/orders', orderRoutes); 
 
 // Enhanced error handling
 mongoose

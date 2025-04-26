@@ -22,17 +22,16 @@ const CartProvider = ({ children }) => {
           setCart(data);
         } catch (error) {
           console.error('Error fetching cart:', error);
+          setCart({ items: [] }); // Reset cart on error
         }
       }
     };
     fetchCart();
   }, [user]);
 
-  // Modified: Updated addToCart to accept product with quantity
   const addToCart = async (product) => {
     if (!user) {
-      alert('Please log in to add items to your cart.');
-      return;
+      throw new Error('Please log in to add items to your cart.');
     }
 
     try {
@@ -42,15 +41,19 @@ const CartProvider = ({ children }) => {
         },
       };
 
-      const quantity = product.quantity || 1; // Use provided quantity or default to 1
+      const quantity = product.quantity || 1;
       const { data } = await axios.post(
         `${API_BASE_URL}/api/cart`,
         { productId: product._id, quantity },
         config
       );
       setCart(data);
+      return data;
     } catch (error) {
-      console.error('Error adding to cart:', error);
+      const errorMessage =
+        error.response?.data?.message || 'Failed to add item to cart';
+      console.error('Error adding to cart:', errorMessage, error);
+      throw new Error(errorMessage);
     }
   };
 
@@ -67,8 +70,12 @@ const CartProvider = ({ children }) => {
         config
       );
       setCart(data);
+      return data;
     } catch (error) {
-      console.error('Error updating quantity:', error);
+      const errorMessage =
+        error.response?.data?.message || 'Failed to update quantity';
+      console.error('Error updating quantity:', errorMessage, error);
+      throw new Error(errorMessage);
     }
   };
 
@@ -81,8 +88,12 @@ const CartProvider = ({ children }) => {
       };
       const { data } = await axios.delete(`${API_BASE_URL}/api/cart/${productId}`, config);
       setCart(data);
+      return data;
     } catch (error) {
-      console.error('Error removing from cart:', error);
+      const errorMessage =
+        error.response?.data?.message || 'Failed to remove item from cart';
+      console.error('Error removing from cart:', errorMessage, error);
+      throw new Error(errorMessage);
     }
   };
 
@@ -95,8 +106,12 @@ const CartProvider = ({ children }) => {
       };
       const { data } = await axios.delete(`${API_BASE_URL}/api/cart`, config);
       setCart(data);
+      return data;
     } catch (error) {
-      console.error('Error clearing cart:', error);
+      const errorMessage =
+        error.response?.data?.message || 'Failed to clear cart';
+      console.error('Error clearing cart:', errorMessage, error);
+      throw new Error(errorMessage);
     }
   };
 
