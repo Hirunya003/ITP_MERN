@@ -15,18 +15,18 @@ exports.addSupplier = async (req, res) => {
     performance,
   } = req.body;
 
-  // ✅ Supplier ID validation: only letters and numbers allowed
+  // Supplier ID validation: only letters and numbers allowed
   const supplierIdPattern = /^[A-Za-z0-9]+$/;
 
-  // ✅ Phone validation: exactly 10 digits
+  // Phone validation: exactly 10 digits
   const phonePattern = /^\d{10}$/;
 
-  // ✋ Validate Supplier ID (no symbols)
+  // Validate Supplier ID (no symbols)
   if (!supplierIdPattern.test(supplierId)) {
     return res.status(400).json({ message: 'Invalid Supplier ID. Only letters and numbers are allowed.' });
   }
 
-  // ✋ Validate phone number
+  // Validate phone number
   if (!phonePattern.test(contact.phone)) {
     return res.status(400).json({ message: 'Invalid phone number. Must be exactly 10 digits and contain no letters.' });
   }
