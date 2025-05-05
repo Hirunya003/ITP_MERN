@@ -19,6 +19,7 @@ import OrderConfirmation from './components/Order/OrderConfirmation';
 import OrderDetails from './components/Order/OrderDetails';
 import PrivateRoute from './components/PrivateRoute';
 import ProductPreview from './components/Order/ProductPreview';
+import UpdateOrderStatus from './pages/UpdateOrderStatus';
 
 const App = () => {
   return (
@@ -50,6 +51,7 @@ const App = () => {
           {/* Special Roles Routes */}
           <Route path="/cashier" element={<CashierDashboard />} />
           <Route path="/storekeeper" element={<StorekeeperDashboard />} />
+          <Route path="/cashier/update-order-status" element={<PrivateRoute element={<UpdateOrderStatus />} />} />
         </Routes>
       </CartProvider>
     </AuthProvider>

@@ -1,24 +1,24 @@
-import { useContext } from 'react';
+import { useContext, useState } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import Header from '../components/home/Header';
+import AllOrders from '../components/AllOrders/AllOrders'; // Import the AllOrders component
+import { FiShoppingCart, FiCreditCard } from 'react-icons/fi';
 
 const CashierDashboard = () => {
   const { user } = useContext(AuthContext);
-  
+  const [activeTab, setActiveTab] = useState('transactions'); // Add state for tab navigation
+
   // Only allow cashier@example.com to access this page
   if (!user || user.email !== 'cashier@example.com') {
     return <Navigate to="/" />;
   }
-  
-  return (
-    <div className="p-4 bg-gray-50 min-h-screen">
-      <Header searchTerm="" setSearchTerm={() => {}} cartCount={0} />
-      
-      <div className="max-w-6xl mx-auto mt-8">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-2xl font-semibold mb-6">Cashier Dashboard</h2>
-          
+
+  // Render dashboard content based on active tab
+  const renderDashboardContent = () => {
+    if (activeTab === 'transactions') {
+      return (
+        <>
           {/* Cashier-specific content */}
           <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
             <div className="flex">
@@ -32,7 +32,7 @@ const CashierDashboard = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Quick actions */}
             <div className="bg-white p-4 rounded-lg border shadow">
@@ -42,7 +42,7 @@ const CashierDashboard = () => {
                 Start Checkout
               </button>
             </div>
-            
+
             <div className="bg-white p-4 rounded-lg border shadow">
               <h3 className="font-semibold text-lg mb-2">Process Returns</h3>
               <p className="text-gray-600 mb-4">Handle customer returns and refunds</p>
@@ -50,7 +50,7 @@ const CashierDashboard = () => {
                 Process Return
               </button>
             </div>
-            
+
             <div className="bg-white p-4 rounded-lg border shadow">
               <h3 className="font-semibold text-lg mb-2">Daily Summary</h3>
               <p className="text-gray-600 mb-4">View your transaction history for today</p>
@@ -59,7 +59,7 @@ const CashierDashboard = () => {
               </button>
             </div>
           </div>
-          
+
           {/* Recent transactions section */}
           <div className="mt-8">
             <h3 className="text-xl font-semibold mb-4">Recent Transactions</h3>
@@ -94,7 +94,7 @@ const CashierDashboard = () => {
                       <div className="text-sm text-gray-500">John Doe</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">$124.00</div>
+                      <div className="text-sm text-gray-900">Rs.124.00</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date().toLocaleDateString()}
@@ -113,7 +113,7 @@ const CashierDashboard = () => {
                       <div className="text-sm text-gray-500">Jane Smith</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">$75.50</div>
+                      <div className="text-sm text-gray-900">Rs.75.50</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date().toLocaleDateString()}
@@ -128,6 +128,47 @@ const CashierDashboard = () => {
               </table>
             </div>
           </div>
+        </>
+      );
+    } else if (activeTab === 'all-orders') {
+      return <AllOrders />;
+    }
+  };
+
+  return (
+    <div className="p-4 bg-gray-50 min-h-screen">
+      <Header searchTerm="" setSearchTerm={() => {}} cartCount={0} />
+
+      <div className="max-w-6xl mx-auto mt-8">
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-2xl font-semibold mb-6">Cashier Dashboard</h2>
+
+          {/* Tabs navigation */}
+          <div className="flex border-b border-gray-200 mb-6 overflow-x-auto pb-1">
+            <button
+              onClick={() => setActiveTab('transactions')}
+              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
+                activeTab === 'transactions'
+                  ? 'text-yellow-600 border-b-2 border-yellow-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <FiCreditCard className="inline mr-1" /> Transactions
+            </button>
+            <button
+              onClick={() => setActiveTab('all-orders')}
+              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
+                activeTab === 'all-orders'
+                  ? 'text-yellow-600 border-b-2 border-yellow-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <FiShoppingCart className="inline mr-1" /> All Orders
+            </button>
+          </div>
+
+          {/* Main dashboard content */}
+          {renderDashboardContent()}
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { useContext, useState, useEffect } from 'react';
+import { useContext, useState, useEffect, useRef } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
@@ -8,12 +8,18 @@ import Spinner from '../components/Spinner';
 import ProductForm from '../components/inventory/ProductForm';
 import StockAdjustment from '../components/inventory/StockAdjustment';
 import StockHistory from '../components/inventory/StockHistory';
-import { 
-  FiPlus, FiEdit, FiTrash2, FiRefreshCw, FiClock, FiAlertCircle, FiSearch, FiGrid, FiList, FiPackage, FiBarChart2, FiCalendar, FiFileText 
+import AllOrders from '../components/AllOrders/AllOrders';
+import {
+  FiPlus, FiEdit, FiTrash2, FiRefreshCw, FiClock, FiAlertCircle, FiSearch, FiGrid, FiList, FiPackage, FiBarChart2, FiCalendar, FiFileText, FiShoppingCart
 } from 'react-icons/fi';
 import jsPDF from 'jspdf';
-
 import autoTable from 'jspdf-autotable';
+import { Bar, Pie } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
+import html2canvas from 'html2canvas';
+
+// Register Chart.js components
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
 // API base URL - default to localhost if not specified
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5555';
@@ -37,27 +43,35 @@ const StorekeeperDashboard = () => {
     totalProducts: 0,
     lowStockCount: 0,
     totalItems: 0,
-    categories: 0
+    categories: 0,
   });
-  
+  const [reportData, setReportData] = useState(null);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  // Refs for capturing charts
+  const barChartRef = useRef(null);
+  const pieChartRef = useRef(null);
+
   // Only allow storekeeper@example.com to access this page
   if (!user || user.email !== 'storekeeper@example.com') {
     return <Navigate to="/" />;
   }
-  
+
   // Fetch products and low stock products
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
         const config = {
-          headers: { Authorization: `Bearer ${user.token}` }
+          headers: { Authorization: `Bearer ${user.token}` },
         };
-        
+
         // Fetch all products
         const productsResponse = await axios.get(`${API_BASE_URL}/api/inventory/products`, config);
         setProducts(productsResponse.data);
-        
+
         // Fetch low stock products
         const lowStockResponse = await axios.get(`${API_BASE_URL}/api/inventory/low-stock`, config);
         setLowStockProducts(lowStockResponse.data);
@@ -66,13 +80,13 @@ const StorekeeperDashboard = () => {
         const totalProducts = productsResponse.data.length;
         const lowStockCount = lowStockResponse.data.length;
         const totalItems = productsResponse.data.reduce((sum, product) => sum + product.currentStock, 0);
-        const uniqueCategories = new Set(productsResponse.data.map(product => product.category)).size;
+        const uniqueCategories = new Set(productsResponse.data.map((product) => product.category)).size;
 
         setSummaryStats({
           totalProducts,
           lowStockCount,
           totalItems,
-          categories: uniqueCategories
+          categories: uniqueCategories,
         });
       } catch (error) {
         console.error('Error fetching inventory data:', error);
@@ -81,198 +95,191 @@ const StorekeeperDashboard = () => {
         setLoading(false);
       }
     };
-    
+
     fetchData();
   }, [user.token, enqueueSnackbar]);
-  
+
   // Filter products based on search term
   const filteredProducts = searchTerm
-    ? products.filter(product => 
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
+    ? products.filter(
+        (product) =>
+          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     : products;
-  
+
   // Handler to add a new product
   const handleAddProduct = async (productData) => {
     try {
       const config = {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${user.token}`
-        }
+          Authorization: `Bearer ${user.token}`,
+        },
       };
-      
+
       const { data } = await axios.post(`${API_BASE_URL}/api/inventory/products`, productData, config);
-      
+
       setProducts([...products, data]);
       if (data.isLowStock) {
         setLowStockProducts([...lowStockProducts, data]);
       }
-      
+
       // Update summary stats
       setSummaryStats({
         ...summaryStats,
         totalProducts: summaryStats.totalProducts + 1,
         totalItems: summaryStats.totalItems + Number(data.currentStock || 0),
         lowStockCount: data.isLowStock ? summaryStats.lowStockCount + 1 : summaryStats.lowStockCount,
-        categories: new Set([...products.map(p => p.category), data.category]).size
+        categories: new Set([...products.map((p) => p.category), data.category]).size,
       });
-      
+
       enqueueSnackbar('Product added successfully', { variant: 'success' });
       setShowAddForm(false);
     } catch (error) {
       console.error('Error adding product:', error);
       enqueueSnackbar(
-        error.response && error.response.data.message
-          ? error.response.data.message
-          : 'Failed to add product',
+        error.response && error.response.data.message ? error.response.data.message : 'Failed to add product',
         { variant: 'error' }
       );
     }
   };
-  
+
   // Handler to update a product
   const handleUpdateProduct = async (productData) => {
     try {
       const config = {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${user.token}`
-        }
+          Authorization: `Bearer ${user.token}`,
+        },
       };
-      
+
       const { data } = await axios.put(
-        `${API_BASE_URL}/api/inventory/products/${selectedProduct._id}`, 
-        productData, 
+        `${API_BASE_URL}/api/inventory/products/${selectedProduct._id}`,
+        productData,
         config
       );
-      
+
       // Update products list
-      const updatedProducts = products.map(p => p._id === data._id ? data : p);
+      const updatedProducts = products.map((p) => (p._id === data._id ? data : p));
       setProducts(updatedProducts);
-      
+
       // Update low stock products
-      const updatedLowStockProducts = lowStockProducts.filter(p => p._id !== data._id);
+      const updatedLowStockProducts = lowStockProducts.filter((p) => p._id !== data._id);
       if (data.isLowStock) {
         updatedLowStockProducts.push(data);
       }
       setLowStockProducts(updatedLowStockProducts);
-      
+
       // Update summary stats (categories might have changed)
-      const uniqueCategories = new Set(updatedProducts.map(product => product.category)).size;
+      const uniqueCategories = new Set(updatedProducts.map((product) => product.category)).size;
       setSummaryStats({
         ...summaryStats,
         lowStockCount: updatedLowStockProducts.length,
-        categories: uniqueCategories
+        categories: uniqueCategories,
       });
-      
+
       enqueueSnackbar('Product updated successfully', { variant: 'success' });
       setShowUpdateForm(false);
       setSelectedProduct(null);
     } catch (error) {
       console.error('Error updating product:', error);
       enqueueSnackbar(
-        error.response && error.response.data.message
-          ? error.response.data.message
-          : 'Failed to update product',
+        error.response && error.response.data.message ? error.response.data.message : 'Failed to update product',
         { variant: 'error' }
       );
     }
   };
-  
+
   // Handler to delete a product
   const handleDeleteProduct = async (id) => {
     try {
       const config = {
-        headers: { Authorization: `Bearer ${user.token}` }
+        headers: { Authorization: `Bearer ${user.token}` },
       };
-      
+
       await axios.delete(`${API_BASE_URL}/api/inventory/products/${id}`, config);
-      
+
       // Find product to remove before updating state
-      const productToRemove = products.find(p => p._id === id);
-      
+      const productToRemove = products.find((p) => p._id === id);
+
       // Update products list
-      const updatedProducts = products.filter(p => p._id !== id);
+      const updatedProducts = products.filter((p) => p._id !== id);
       setProducts(updatedProducts);
-      
+
       // Update low stock products
-      setLowStockProducts(lowStockProducts.filter(p => p._id !== id));
-      
+      setLowStockProducts(lowStockProducts.filter((p) => p._id !== id));
+
       // Update summary stats
-      const uniqueCategories = new Set(updatedProducts.map(product => product.category)).size;
+      const uniqueCategories = new Set(updatedProducts.map((product) => product.category)).size;
       setSummaryStats({
         totalProducts: summaryStats.totalProducts - 1,
         lowStockCount: productToRemove?.isLowStock ? summaryStats.lowStockCount - 1 : summaryStats.lowStockCount,
         totalItems: summaryStats.totalItems - Number(productToRemove?.currentStock || 0),
-        categories: uniqueCategories
+        categories: uniqueCategories,
       });
-      
+
       enqueueSnackbar('Product deleted successfully', { variant: 'success' });
       setDeleteConfirmation(null);
     } catch (error) {
       console.error('Error deleting product:', error);
       enqueueSnackbar(
-        error.response && error.response.data.message
-          ? error.response.data.message
-          : 'Failed to delete product',
+        error.response && error.response.data.message ? error.response.data.message : 'Failed to delete product',
         { variant: 'error' }
       );
     }
   };
-  
+
   // Handler for stock adjustment
   const handleStockAdjustment = async (adjustmentData) => {
     try {
       const config = {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${user.token}`
-        }
+          Authorization: `Bearer ${user.token}`,
+        },
       };
-      
+
       const { data } = await axios.put(
-        `${API_BASE_URL}/api/inventory/products/${selectedProduct._id}/stock`, 
-        adjustmentData, 
+        `${API_BASE_URL}/api/inventory/products/${selectedProduct._id}/stock`,
+        adjustmentData,
         config
       );
-      
+
       // Calculate stock change for stats update
       const stockDifference = data.stockChange.newStock - data.stockChange.previousStock;
-      
+
       // Update products list
-      const updatedProducts = products.map(p => p._id === data.product._id ? data.product : p);
+      const updatedProducts = products.map((p) => (p._id === data.product._id ? data.product : p));
       setProducts(updatedProducts);
-      
+
       // Update low stock products
-      const updatedLowStockProducts = lowStockProducts.filter(p => p._id !== data.product._id);
+      const updatedLowStockProducts = lowStockProducts.filter((p) => p._id !== data.product._id);
       if (data.product.isLowStock) {
         updatedLowStockProducts.push(data.product);
       }
       setLowStockProducts(updatedLowStockProducts);
-      
+
       // Update summary stats
       setSummaryStats({
         ...summaryStats,
         totalItems: summaryStats.totalItems + stockDifference,
-        lowStockCount: updatedLowStockProducts.length
+        lowStockCount: updatedLowStockProducts.length,
       });
-      
+
       enqueueSnackbar(
         `Stock updated: ${Math.abs(stockDifference)} units ${stockDifference >= 0 ? 'added' : 'removed'}`,
         { variant: 'success' }
       );
-      
+
       setShowStockAdjustment(false);
       setSelectedProduct(null);
     } catch (error) {
       console.error('Error adjusting stock:', error);
       enqueueSnackbar(
-        error.response && error.response.data.message
-          ? error.response.data.message
-          : 'Failed to adjust stock',
+        error.response && error.response.data.message ? error.response.data.message : 'Failed to adjust stock',
         { variant: 'error' }
       );
     }
@@ -281,17 +288,15 @@ const StorekeeperDashboard = () => {
   // Export report as CSV
   const exportCSV = () => {
     const headers = ['Name', 'Category', 'Price', 'Current Stock', 'Min Stock', 'Unit'];
-    const rows = products.map(product => [
+    const rows = products.map((product) => [
       product.name,
       product.category,
       product.price,
       product.currentStock,
       product.minStock,
-      product.unit
+      product.unit,
     ]);
-    const csvContent = [headers, ...rows]
-      .map(row => row.join(','))
-      .join('\n');
+    const csvContent = [headers, ...rows].map((row) => row.join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -305,10 +310,10 @@ const StorekeeperDashboard = () => {
   // Export report as PDF using jsPDF and autoTable
   const exportPDF = () => {
     const doc = new jsPDF();
-    doc.text("Inventory Report", 14, 16);
-    const tableColumn = ["Name", "Category", "Price", "Current Stock", "Min Stock", "Unit"];
+    doc.text('Inventory Report', 14, 16);
+    const tableColumn = ['Name', 'Category', 'Price', 'Current Stock', 'Min Stock', 'Unit'];
     const tableRows = [];
-    products.forEach(product => {
+    products.forEach((product) => {
       const productData = [
         product.name,
         product.category,
@@ -324,53 +329,226 @@ const StorekeeperDashboard = () => {
       body: tableRows,
       startY: 20,
     });
-    doc.save("inventory_report.pdf");
+    doc.save('inventory_report.pdf');
+  };
+
+  // Handler to generate the order report
+  const handleGenerateReport = async () => {
+    try {
+      const config = {
+        headers: { Authorization: `Bearer ${user.token}` },
+        params: { startDate, endDate, status: statusFilter },
+      };
+      const response = await axios.get(`${API_BASE_URL}/api/orders/report`, config);
+      setReportData(response.data);
+    } catch (error) {
+      console.error('Error generating report:', error);
+      enqueueSnackbar('Failed to generate report', { variant: 'error' });
+    }
+  };
+
+  // Handler to download the order report as PDF
+  const handleDownloadPDF = async () => {
+    if (!reportData) return;
+
+    const doc = new jsPDF();
+    let yPos = 20;
+
+    // Title
+    doc.setFontSize(16);
+    doc.text('Order Status Report', 14, yPos);
+    yPos += 10;
+
+    // Add filter details
+    doc.setFontSize(12);
+    doc.text(`Date Range: ${startDate || 'N/A'} to ${endDate || 'N/A'}`, 14, yPos);
+    yPos += 10;
+    doc.text(`Status: ${statusFilter === 'all' ? 'All Statuses' : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}`, 14, yPos);
+    yPos += 10;
+
+    // Capture and add Bar Chart
+    if (barChartRef.current) {
+      const barCanvas = await html2canvas(barChartRef.current, { backgroundColor: '#ffffff' });
+      const barImgData = barCanvas.toDataURL('image/png');
+      const barImgProps = doc.getImageProperties(barImgData);
+      const barWidth = 90; // Width in mm (A4 page width is 210mm)
+      const barHeight = (barImgProps.height * barWidth) / barImgProps.width;
+      doc.addImage(barImgData, 'PNG', 14, yPos, barWidth, barHeight);
+      yPos += barHeight + 10;
+    }
+
+    // Capture and add Pie Chart
+    if (pieChartRef.current) {
+      const pieCanvas = await html2canvas(pieChartRef.current, { backgroundColor: '#ffffff' });
+      const pieImgData = pieCanvas.toDataURL('image/png');
+      const pieImgProps = doc.getImageProperties(pieImgData);
+      const pieWidth = 90;
+      const pieHeight = (pieImgProps.height * pieWidth) / pieImgProps.width;
+      doc.addImage(pieImgData, 'PNG', 14, yPos, pieWidth, pieHeight);
+      yPos += pieHeight + 10;
+    }
+
+    // Detailed Orders Tables
+    const statuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+    for (const status of statuses) {
+      const orders = reportData.statusGroups[status];
+      if (orders.length === 0) continue;
+
+      doc.setFontSize(14);
+      doc.text(`${status.charAt(0).toUpperCase() + status.slice(1)} Orders (Total: ${orders.length})`, 14, yPos);
+      yPos += 10;
+
+      const tableData = orders.map((order) => [
+        order._id.slice(-6),
+        new Date(order.createdAt).toLocaleDateString(),
+        order.billingInfo.fullName,
+        `$${order.totalPrice.toFixed(2)}`,
+        order.status.charAt(0).toUpperCase() + order.status.slice(1),
+        order.items.map((item, index) => `${index + 1}. ${item.product?.name || 'Unknown'} (${item.quantity}x $${item.price.toFixed(2)})`).join('\n'),
+      ]);
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Order ID', 'Date', 'Customer', 'Total', 'Status', 'Items']],
+        body: tableData,
+        theme: 'striped',
+        headStyles: { fillColor: [54, 162, 235] },
+        styles: { fontSize: 8, cellPadding: 2 },
+        columnStyles: { 5: { cellWidth: 60 } }, // Adjust width of "Items" column
+      });
+
+      yPos = doc.lastAutoTable.finalY + 10;
+    }
+
+    doc.save('order-report.pdf');
+  };
+
+  // Prepare data for charts
+  const getChartData = () => {
+    if (!reportData) return { barData: {}, pieData: {} };
+
+    const statuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+    const counts = statuses.map(status => reportData.statusGroups[status].length);
+    const totalOrders = counts.reduce((sum, count) => sum + count, 0);
+    const percentages = counts.map(count => totalOrders > 0 ? (count / totalOrders * 100).toFixed(1) : 0);
+
+    const colors = [
+      'rgba(255, 206, 86, 0.6)',  // Yellow for pending
+      'rgba(54, 162, 235, 0.6)',  // Blue for processing
+      'rgba(153, 102, 255, 0.6)', // Purple for shipped
+      'rgba(75, 192, 192, 0.6)',  // Teal for delivered
+      'rgba(255, 99, 132, 0.6)',  // Red for cancelled
+    ];
+
+    const barData = {
+      labels: statuses.map(status => status.charAt(0).toUpperCase() + status.slice(1)),
+      datasets: [
+        {
+          label: 'Number of Orders',
+          data: counts,
+          backgroundColor: colors,
+          borderColor: colors.map(color => color.replace('0.6', '1')),
+          borderWidth: 1,
+        },
+      ],
+    };
+
+    const pieData = {
+      labels: statuses.map(status => status.charAt(0).toUpperCase() + status.slice(1)),
+      datasets: [
+        {
+          label: 'Order Distribution',
+          data: percentages,
+          backgroundColor: colors,
+          borderColor: colors.map(color => color.replace('0.6', '1')),
+          borderWidth: 1,
+        },
+      ],
+    };
+
+    return { barData, pieData };
+  };
+
+  const { barData, pieData } = getChartData();
+
+  // Chart options
+  const barOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top',
+      },
+      title: {
+        display: true,
+        text: 'Order Status Distribution (Count)',
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: 'Number of Orders',
+        },
+      },
+    },
+  };
+
+  const pieOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top',
+      },
+      title: {
+        display: true,
+        text: 'Order Status Distribution (%)',
+      },
+      tooltip: {
+        callbacks: {
+          label: (context) => `${context.label}: ${context.raw}%`,
+        },
+      },
+    },
   };
 
   // Render dashboard content based on active tab
   const renderDashboardContent = () => {
     if (showAddForm) {
-      return (
-        <ProductForm 
-          onSubmit={handleAddProduct} 
-          onCancel={() => setShowAddForm(false)} 
-        />
-      );
+      return <ProductForm onSubmit={handleAddProduct} onCancel={() => setShowAddForm(false)} />;
     }
-    
+
     if (showUpdateForm && selectedProduct) {
       return (
-        <ProductForm 
-          product={selectedProduct} 
-          onSubmit={handleUpdateProduct} 
+        <ProductForm
+          product={selectedProduct}
+          onSubmit={handleUpdateProduct}
           onCancel={() => {
             setShowUpdateForm(false);
             setSelectedProduct(null);
-          }} 
+          }}
         />
       );
     }
-    
+
     if (showStockAdjustment && selectedProduct) {
       return (
-        <StockAdjustment 
-          product={selectedProduct} 
-          onAdjustStock={handleStockAdjustment} 
+        <StockAdjustment
+          product={selectedProduct}
+          onAdjustStock={handleStockAdjustment}
           onCancel={() => {
             setShowStockAdjustment(false);
             setSelectedProduct(null);
-          }} 
+          }}
         />
       );
     }
-    
+
     if (showProductHistory && selectedProduct) {
       return (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">
-              Stock History: {selectedProduct.name}
-            </h2>
+            <h2 className="text-xl font-semibold">Stock History: {selectedProduct.name}</h2>
             <button
               onClick={() => {
                 setShowProductHistory(false);
@@ -385,13 +563,13 @@ const StorekeeperDashboard = () => {
         </div>
       );
     }
-    
+
     if (activeTab === 'inventory') {
       return (
         <>
           <div className="flex flex-wrap items-center justify-between mb-6">
             <h3 className="text-xl font-semibold">Products Inventory</h3>
-            
+
             <div className="flex items-center space-x-3 mt-2 md:mt-0">
               <div className="relative">
                 <input
@@ -403,7 +581,7 @@ const StorekeeperDashboard = () => {
                 />
                 <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               </div>
-              
+
               <div className="flex border rounded-lg overflow-hidden">
                 <button
                   className={`p-2 ${viewType === 'grid' ? 'bg-yellow-600 text-white' : 'bg-gray-100 text-gray-600'}`}
@@ -418,7 +596,7 @@ const StorekeeperDashboard = () => {
                   <FiList />
                 </button>
               </div>
-              
+
               <button
                 onClick={() => setShowAddForm(true)}
                 className="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 flex items-center"
@@ -427,7 +605,7 @@ const StorekeeperDashboard = () => {
               </button>
             </div>
           </div>
-          
+
           {filteredProducts.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg shadow-md">
               {searchTerm ? (
@@ -455,16 +633,16 @@ const StorekeeperDashboard = () => {
           ) : viewType === 'grid' ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredProducts.map((product) => (
-                <div 
-                  key={product._id} 
+                <div
+                  key={product._id}
                   className={`bg-white rounded-lg shadow-md overflow-hidden border ${
                     product.isLowStock ? 'border-red-400' : 'border-transparent'
                   }`}
                 >
                   <div className="h-40 overflow-hidden bg-gray-100 relative">
-                    <img 
-                      src={product.image} 
-                      alt={product.name} 
+                    <img
+                      src={product.image}
+                      alt={product.name}
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         e.target.onerror = null;
@@ -477,17 +655,19 @@ const StorekeeperDashboard = () => {
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="p-4">
                     <h4 className="font-semibold text-gray-900">{product.name}</h4>
                     <p className="text-sm text-gray-500 mb-2">{product.category}</p>
-                    
+
                     <div className="flex justify-between mb-2">
                       <div>
                         <span className="text-sm text-gray-500">Stock:</span>
-                        <span className={`ml-1 font-medium ${
-                          product.isLowStock ? 'text-red-600' : 'text-gray-900'
-                        }`}>
+                        <span
+                          className={`ml-1 font-medium ${
+                            product.isLowStock ? 'text-red-600' : 'text-gray-900'
+                          }`}
+                        >
                           {product.currentStock} {product.unit}(s)
                         </span>
                       </div>
@@ -496,13 +676,13 @@ const StorekeeperDashboard = () => {
                         <span className="ml-1 font-medium text-gray-900">${product.price.toFixed(2)}</span>
                       </div>
                     </div>
-                    
+
                     {product.expiryDate && (
                       <div className="text-xs text-gray-500 mb-3">
                         Expires: {new Date(product.expiryDate).toLocaleDateString()}
                       </div>
                     )}
-                    
+
                     <div className="flex justify-between pt-2 border-t">
                       <button
                         onClick={() => {
@@ -552,25 +732,46 @@ const StorekeeperDashboard = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         Product
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         Category
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         Price
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         Current Stock
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         Min Stock
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         Status
                       </th>
-                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         Actions
                       </th>
                     </tr>
@@ -581,8 +782,8 @@ const StorekeeperDashboard = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10 rounded-full overflow-hidden bg-gray-100">
-                              <img 
-                                src={product.image} 
+                              <img
+                                src={product.image}
                                 alt={product.name}
                                 className="h-full w-full object-cover"
                                 onError={(e) => {
@@ -593,7 +794,9 @@ const StorekeeperDashboard = () => {
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                              {product.barcode && <div className="text-xs text-gray-500">SKU: {product.barcode}</div>}
+                              {product.barcode && (
+                                <div className="text-xs text-gray-500">SKU: {product.barcode}</div>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -601,13 +804,17 @@ const StorekeeperDashboard = () => {
                           <div className="text-sm text-gray-900">{product.category}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">${product.price.toFixed(2)}</div>
+                          <div className="text-sm text-gray-900">Rs.{product.price.toFixed(2)}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{product.currentStock} {product.unit}(s)</div>
+                          <div className="text-sm text-gray-900">
+                            {product.currentStock} {product.unit}(s)
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{product.minStock} {product.unit}(s)</div>
+                          <div className="text-sm text-gray-900">
+                            {product.minStock} {product.unit}(s)
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {product.isLowStock ? (
@@ -674,7 +881,7 @@ const StorekeeperDashboard = () => {
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-semibold">Low Stock Alerts</h3>
           </div>
-          
+
           {lowStockProducts.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg shadow-md">
               <p className="text-gray-500">No products are low on stock. Everything looks good!</p>
@@ -685,22 +892,40 @@ const StorekeeperDashboard = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         Product
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         Category
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         Current Stock
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         Min Stock
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         Status
                       </th>
-                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         Actions
                       </th>
                     </tr>
@@ -711,8 +936,8 @@ const StorekeeperDashboard = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10 rounded-full overflow-hidden bg-gray-100">
-                              <img 
-                                src={product.image} 
+                              <img
+                                src={product.image}
                                 alt={product.name}
                                 className="h-full w-full object-cover"
                                 onError={(e) => {
@@ -723,7 +948,9 @@ const StorekeeperDashboard = () => {
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                              {product.barcode && <div className="text-xs text-gray-500">SKU: {product.barcode}</div>}
+                              {product.barcode && (
+                                <div className="text-xs text-gray-500">SKU: {product.barcode}</div>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -731,10 +958,14 @@ const StorekeeperDashboard = () => {
                           <div className="text-sm text-gray-900">{product.category}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-red-600">{product.currentStock} {product.unit}(s)</div>
+                          <div className="text-sm font-medium text-red-600">
+                            {product.currentStock} {product.unit}(s)
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{product.minStock} {product.unit}(s)</div>
+                          <div className="text-sm text-gray-900">
+                            {product.minStock} {product.unit}(s)
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {product.currentStock === 0 ? (
@@ -791,27 +1022,31 @@ const StorekeeperDashboard = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {products.map(product => (
+                {products.map((product) => (
                   <tr key={product._id}>
                     <td className="px-4 py-2 text-sm text-gray-800">{product.name}</td>
                     <td className="px-4 py-2 text-sm text-gray-800">{product.category}</td>
                     <td className="px-4 py-2 text-sm text-gray-800">${product.price.toFixed(2)}</td>
-                    <td className="px-4 py-2 text-sm text-gray-800">{product.currentStock} {product.unit}</td>
-                    <td className="px-4 py-2 text-sm text-gray-800">{product.minStock} {product.unit}</td>
+                    <td className="px-4 py-2 text-sm text-gray-800">
+                      {product.currentStock} {product.unit}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray-800">
+                      {product.minStock} {product.unit}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <div className="flex space-x-4">
-            <button 
-              onClick={exportCSV} 
+            <button
+              onClick={exportCSV}
               className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md"
             >
               Export CSV
             </button>
-            <button 
-              onClick={exportPDF} 
+            <button
+              onClick={exportPDF}
               className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md"
             >
               Export PDF
@@ -819,17 +1054,194 @@ const StorekeeperDashboard = () => {
           </div>
         </div>
       );
+    } else if (activeTab === 'order-report') {
+      return (
+        <div>
+          <div className="mb-6 flex flex-wrap items-center gap-4">
+            <div className="flex items-center">
+              <label htmlFor="start-date" className="mr-2 text-sm font-medium text-gray-700">
+                Start Date:
+              </label>
+              <div className="relative">
+                <input
+                  type="date"
+                  id="start-date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="border border-gray-300 rounded-md p-2 text-sm focus:ring-yellow-500 focus:border-yellow-500"
+                  style={{ paddingRight: '2rem' }}
+                />
+                <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400">
+                  📅
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center">
+              <label htmlFor="end-date" className="mr-2 text-sm font-medium text-gray-700">
+                End Date:
+              </label>
+              <div className="relative">
+                <input
+                  type="date"
+                  id="end-date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="border border-gray-300 rounded-md p-2 text-sm focus:ring-yellow-500 focus:border-yellow-500"
+                  style={{ paddingRight: '2rem' }}
+                />
+                <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400">
+                  📅
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center">
+              <label htmlFor="status-filter" className="mr-2 text-sm font-medium text-gray-700">
+                Status:
+              </label>
+              <select
+                id="status-filter"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="border border-gray-300 rounded-md p-2 text-sm focus:ring-yellow-500 focus:border-yellow-500"
+              >
+                <option value="all">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+                <option value="shipped">Shipped</option>
+                <option value="delivered">Delivered</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+
+            <button
+              onClick={handleGenerateReport}
+              className="bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700"
+            >
+              Generate Report
+            </button>
+
+            {reportData && (
+              <button
+                onClick={handleDownloadPDF}
+                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+              >
+                Download PDF
+              </button>
+            )}
+          </div>
+
+          {reportData && (
+            <div>
+              {/* Display Charts */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div className="bg-white p-4 rounded-lg shadow-md" ref={barChartRef}>
+                  <Bar data={barData} options={barOptions} />
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-md" ref={pieChartRef}>
+                  <Pie data={pieData} options={pieOptions} />
+                </div>
+              </div>
+
+              {/* Detailed Orders by Status */}
+              {Object.keys(reportData.statusGroups).map((status) => {
+                const orders = reportData.statusGroups[status];
+                if (orders.length === 0) return null;
+
+                return (
+                  <div key={status} className="mb-8">
+                    <h3 className="text-lg font-semibold">
+                      {status.charAt(0).toUpperCase() + status.slice(1)} Orders (Total: {orders.length})
+                    </h3>
+                    <div className="overflow-x-auto mt-4">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Order ID
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Date
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Customer
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Total
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Status
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Items
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {orders.map((order) => (
+                            <tr key={order._id}>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {order._id.slice(-6)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {new Date(order.createdAt).toLocaleDateString()}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {order.billingInfo.fullName}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                Rs.{order.totalPrice.toFixed(2)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span
+                                  className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                    order.status === 'pending'
+                                      ? 'bg-yellow-100 text-yellow-800'
+                                      : order.status === 'processing'
+                                      ? 'bg-blue-100 text-blue-800'
+                                      : order.status === 'shipped'
+                                      ? 'bg-purple-100 text-purple-800'
+                                      : order.status === 'delivered'
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-red-100 text-red-800'
+                                  }`}
+                                >
+                                  {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-900">
+                                {order.items.map((item, index) => (
+                                  <div key={index}>
+                                    {index + 1}. {item.product?.name || 'Unknown'} ({item.quantity}x Rs.{item.price.toFixed(2)})
+                                  </div>
+                                ))}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    } else if (activeTab === 'all-orders') {
+      return <AllOrders />;
     }
   };
 
   return (
     <div className="p-4 bg-gray-50 min-h-screen">
       <Header searchTerm="" setSearchTerm={() => {}} cartCount={0} />
-      
+
       <div className="max-w-7xl mx-auto mt-8">
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-2xl font-semibold mb-6">Storekeeper Dashboard</h2>
-          
+
           {/* Dashboard summary stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div className="bg-white p-4 rounded-lg border shadow-md">
@@ -843,7 +1255,7 @@ const StorekeeperDashboard = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-white p-4 rounded-lg border shadow-md">
               <div className="flex items-center">
                 <div className="p-3 rounded-full bg-green-100 text-green-500 mr-4">
@@ -855,7 +1267,7 @@ const StorekeeperDashboard = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-white p-4 rounded-lg border shadow-md">
               <div className="flex items-center">
                 <div className="p-3 rounded-full bg-red-100 text-red-500 mr-4">
@@ -867,7 +1279,7 @@ const StorekeeperDashboard = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-white p-4 rounded-lg border shadow-md">
               <div className="flex items-center">
                 <div className="p-3 rounded-full bg-purple-100 text-purple-500 mr-4">
@@ -880,7 +1292,7 @@ const StorekeeperDashboard = () => {
               </div>
             </div>
           </div>
-          
+
           {/* Tabs navigation */}
           <div className="flex border-b border-gray-200 mb-6 overflow-x-auto pb-1">
             <button
@@ -926,10 +1338,30 @@ const StorekeeperDashboard = () => {
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              <FiFileText className="inline mr-1" /> Reports
+              <FiFileText className="inline mr-1" /> Inventory Report
+            </button>
+            <button
+              onClick={() => setActiveTab('order-report')}
+              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
+                activeTab === 'order-report'
+                  ? 'text-yellow-600 border-b-2 border-yellow-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <FiShoppingCart className="inline mr-1" /> Order Report
+            </button>
+            <button
+              onClick={() => setActiveTab('all-orders')}
+              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
+                activeTab === 'all-orders'
+                  ? 'text-yellow-600 border-b-2 border-yellow-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <FiShoppingCart className="inline mr-1" /> All Orders
             </button>
           </div>
-          
+
           {/* Main dashboard content */}
           {loading ? (
             <div className="flex justify-center py-12">
@@ -940,7 +1372,7 @@ const StorekeeperDashboard = () => {
           )}
         </div>
       </div>
-      
+
       {/* Delete confirmation modal */}
       {deleteConfirmation && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
