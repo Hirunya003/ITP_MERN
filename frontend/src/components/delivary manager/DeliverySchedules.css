@@ -1,0 +1,115 @@
+.delivery-schedules-container {
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 20px;
+  }
+  
+  .delivery-schedules-container h2 {
+    font-size: 24px;
+    color: #333;
+  }
+  
+  .delivery-schedules-container p {
+    color: #666;
+    margin-bottom: 20px;
+  }
+  
+  .controls {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  
+  .search-bar {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-right: 20px;
+  }
+  
+  .status-filter {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+  }
+  
+  .schedules-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+  
+  .schedule-card {
+    flex: 1 1 calc(33.333% - 20px);
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  .schedule-card h3 {
+    font-size: 18px;
+    color: #333;
+    margin-bottom: 10px;
+  }
+  
+  .schedule-card .status {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+  
+  .schedule-card .status.pending {
+    background: #ffe082;
+    color: #333;
+  }
+  
+  .schedule-card .status.in-progress {
+    background: #90caf9;
+    color: #333;
+  }
+  
+  .schedule-card .status.completed {
+    background: #a5d6a7;
+    color: #333;
+  }
+  
+  .schedule-card .status.cancelled {
+    background: #ef9a9a;
+    color: #333;
+  }
+  
+  .schedule-card p {
+    margin: 10px 0;
+    color: #666;
+  }
+  
+  .schedule-card p strong {
+    color: #333;
+  }
+  
+  .schedule-actions {
+    display: flex;
+    gap: 10px;
+  }
+  
+  .edit-btn, .delete-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .edit-btn {
+    background: #e0e0e0;
+    color: #333;
+  }
+  
+  .delete-btn {
+    background: #ef5350;
+    color: #fff;
+  }
